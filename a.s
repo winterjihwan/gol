@@ -4,24 +4,28 @@
 	syscall
 %endmacro
 
-%macro print 2
-	mov rax, 0x02000004
-	mov rdi, 1
-	mov rsi, %1
-	mov rdx, %2
-	syscall
-%endmacro
-
 section .bss
 	plane 		resq cols * rows
 
 section .data
-	cols			equ 4
-	rows			equ 4
+	cols			equ 16
+	rows			equ 16
+	nl 				db 0Ah
 
 section .text
 	global 		_main
 
+;; rsi - str
+;; rdx - len
+print:
+	push 			rax
+	mov 			rax, 0x02000004
+	mov 			rdi, 1
+	syscall
+	pop 			rax
+	ret
+
+;; No args
 plane_init:
 	mov 			rax, 0 			;; i = 0
 	mov 			rbx, 0 			;; j = 0
@@ -51,7 +55,7 @@ plane_init:
 	mov 			r9, plane
 	add 			r8, r9 			;; plane[4i + j]
 
-	mov 			QWORD [r8], 30h	;; plane[4i + j] = 'a'
+	mov 			QWORD [r8], 2Eh	;; plane[4i + j] = '.'
 
 	inc 			rbx
 	jmp				.L3
@@ -66,6 +70,7 @@ plane_init:
 
 	ret
 
+;; No args
 plane_dump:
 	mov 			rax, 0 			;; i = 0
 
@@ -77,23 +82,24 @@ plane_dump:
 	cmp 			rax, cols
 	je 				.L2
 
-	;; most inner body
 	mov 			r8, rax
 	imul 			r8, 4
 	mov 			r9, plane
 	add 			r8, r9 			;; plane[4i]
 
-	print 		r8, cols
+	mov 			rsi, r8
+	mov 			rdx, cols
+	call 			print 			;; print plane[ri]
 
-	mov 			r8, '10'
-	print 		r8, 1
+	mov 			rsi, nl
+	mov 			rdx, 1
+	call 			print				;; print '\n'
 
 	inc 			rax
 	jmp				.L1
 
 	.L2:
 	ret
-
 
 entry:
 	call 			plane_init
