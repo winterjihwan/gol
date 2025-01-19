@@ -11,8 +11,8 @@ section .bss
 	plane 		resq cols * rows
 
 section .data
-	cols			equ 16
-	rows			equ 16
+	cols			equ 4
+	rows			equ 4
 	nl 				db 0Ah
 	rm 				db "Read me", 0, 10
 
@@ -122,6 +122,48 @@ _alloc_one:
 
 	ret
 
+%macro IF_BETZ 3
+	cmp 			%2, 0
+	jl 				.L_%1
+
+	cmp 			%2, %3
+	jge 			.L_%1
+%endmacro
+
+%macro IF_EQ 3
+	cmp 			%2, %3
+	jle 			.L_%1
+%endmacro
+
+%macro IF_LT 3
+	cmp 			%2, %3
+	jge 			.L_%1
+%endmacro
+
+%macro ENDIF 1
+	.L_%1:
+	%undef 		ENDIF_NAME
+%endmacro
+
+;; %1 - state
+;; %2 - col index
+;; %3 - row index
+%macro STATE_CHG 3
+	push 			rdx
+	push 			rcx
+	
+	mov 			rdx, %2
+	imul 			rdx, rows 		;; row_len * i
+	mov 			rcx, plane
+	add 			rcx, rdx
+	add 			rcx, %3 			;; plane[row_len * i + j]
+
+	mov 			byte [rcx], %1
+
+	pop 			rcx
+	pop 			rdx
+%endmacro
+
 ;; No args
 ;;
 ;; No ret
@@ -146,15 +188,18 @@ plane_advance:
 	je 				.L4
 
 	;; most inner body
+	push 			rax 				;; clobber - fn neighbour
+
 	mov 			rsi, rax
 	mov 			rdi, rbx
 	call 			neighbours
 
-	mov 			rsi, rm
+	IF_LT 		lt_2, rax, 2
+		STATE_CHG	state_dead, rax, rbx
+	ENDIF 		lt_2
 
-	mov 			rdx, 9
-	call 			print				;; print 'READ ME'
-	mov 			r15, rax
+	pop 			rax 				;; clobber - fn neighbour
+	;; inner body end
 
 	inc 			rbx
 	jmp				.L3
@@ -170,21 +215,6 @@ plane_advance:
 	mov 			rsp, rbp
 	pop 			rbp
 	ret
-
-%macro IF_GTZ 2
-	cmp 			%2, 0
-	jle 			.L_%1
-%endmacro
-
-%macro IF_EQ 3
-	cmp 			%2, %3
-	jle 			.L_%1
-%endmacro
-
-%macro ENDIF 1
-	.L_%1:
-	%undef 		ENDIF_NAME
-%endmacro
 
 ;; %1 	- col index
 ;; %2 	- row index
@@ -208,6 +238,25 @@ plane_advance:
 	pop 			rcx
 %endmacro
 
+;; %1 - name
+%macro NB_OFFSET 1 
+	IF_BETZ 	%1_s, rsi, cols
+		IF_BETZ 	%1_d, rdi, rows
+			ADDIF_NB_ALIVE 	%1_a, rsi, rdi
+		ENDIF			%1_s
+	ENDIF			%1_d
+%endmacro
+
+%macro R2_PUSH 2
+	push %1
+	push %2
+%endmacro
+
+%macro R2_POP 2
+	pop %1
+	pop %2
+%endmacro
+
 ;; rsi - col index
 ;; rdi - row index
 ;;
@@ -215,70 +264,51 @@ plane_advance:
 neighbours:
 	mov 			rax, 0
 
+	R2_POP 		rdi, rsi
 	dec 			rsi
 	dec 			rdi 	;; plane[i-1][j-1]
+	NB_OFFSET lu
+	R2_PUSH 	rsi, rdi
 
-	IF_GTZ 		lu_s, rsi
-		IF_GTZ 		lu_d, rdi
-			ADDIF_NB_ALIVE 	lu_a, rsi, rdi
-		ENDIF			lu_s
-	ENDIF			lu_d
+	R2_POP 		rdi, rsi
+	dec 			rsi 	;; plane[i-1][j]
+	NB_OFFSET u
+	R2_PUSH 	rsi, rdi
 
-	inc 			rdi 	;; plane[i-1][j]
-	IF_GTZ 		u_s, rsi
-		IF_GTZ 		u_d, rdi
-			ADDIF_NB_ALIVE 	u_a, rsi, rdi
-		ENDIF 		u_s
-	ENDIF 		u_d
-
+	R2_POP 		rdi, rsi
+	dec 			rsi
 	inc 			rdi 	;; plane[i-1][j+1]
-	IF_GTZ 		ru_s, rsi
-		IF_GTZ 		ru_d, rdi
-			ADDIF_NB_ALIVE 	ru_a, rsi, rdi
-		ENDIF			ru_s
-	ENDIF			ru_d
+	NB_OFFSET ru
+	R2_PUSH 	rsi, rdi
 
-	inc 			rsi 	;; plane[i][j+1]
-	IF_GTZ 		r_s, rsi
-		IF_GTZ 		r_d, rdi
-			ADDIF_NB_ALIVE 	r_a, rsi, rdi
-		ENDIF			r_s
-	ENDIF			r_d
+	R2_POP 		rdi, rsi
+	inc 			rdi 	;; plane[i][j+1]
+	NB_OFFSET r
+	R2_PUSH 	rsi, rdi
 
-	dec 			rdi 	;; plane[i][j]
-	IF_GTZ 		o_s, rsi
-		IF_GTZ 		o_d, rdi
-			ADDIF_NB_ALIVE 	o_a, rsi, rdi
-		ENDIF			o_s
-	ENDIF			o_d
+	NB_OFFSET o 		;; plane[i][j]
 
+	R2_POP 		rdi, rsi
 	dec 			rdi 	;; plane[i][j-1]
-	IF_GTZ 		l_s, rsi
-		IF_GTZ 		l_d, rdi
-			ADDIF_NB_ALIVE 	l_a, rsi, rdi
-		ENDIF			l_s
-	ENDIF			l_d
+	NB_OFFSET l
+	R2_PUSH 	rsi, rdi
 
-	inc 			rsi 	;; plane[i+1][j-1]
-	IF_GTZ 		ld_s, rsi
-		IF_GTZ 		ld_d, rdi
-			ADDIF_NB_ALIVE 	ld_a, rsi, rdi
-		ENDIF			ld_s
-	ENDIF			ld_d
+	R2_POP 		rdi, rsi
+	inc 			rsi
+	dec 			rdi 	;; plane[i+1][j-1]
+	NB_OFFSET ld
+	R2_PUSH 	rsi, rdi
 
-	inc 			rdi 	;; plane[i+1][j]
-	IF_GTZ 		d_s, rsi
-		IF_GTZ 		d_d, rdi
-			ADDIF_NB_ALIVE 	d_a, rsi, rdi
-		ENDIF			d_s
-	ENDIF			d_d
+	R2_POP 		rdi, rsi
+	inc 			rsi 	;; plane[i+1][j]
+	NB_OFFSET d
+	R2_PUSH 	rsi, rdi
 
+	R2_POP 		rdi, rsi
+	inc 			rsi
 	inc 			rdi 	;; plane[i+1][j+1]
-	IF_GTZ 		rd_s, rsi
-		IF_GTZ 		rd_d, rdi
-			ADDIF_NB_ALIVE 	rd_a, rsi, rdi
-		ENDIF			rd_s
-	ENDIF			rd_d
+	NB_OFFSET rd
+	R2_PUSH 	rsi, rdi
 
 	xor 			rsi, rsi
 	xor 			rdi, rdi
@@ -288,12 +318,10 @@ entry:
 	call 			plane_init
 
 	alloc_one 2, 3
-	alloc_one 2, 4
-	alloc_one 3, 4
-	alloc_one 5, 4
 
 	call 			plane_dump
 	call 			plane_advance
+	call 			plane_dump
 
 	exit 			0
 
