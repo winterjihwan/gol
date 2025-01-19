@@ -14,6 +14,7 @@ section .data
 	cols			equ 16
 	rows			equ 16
 	nl 				db 0Ah
+	rm 				db "Read me", 0, 10
 
 section .text
 	global 		_main
@@ -139,31 +140,21 @@ plane_advance:
 	cmp 			rax, cols
 	je 				.L2
 
-	mov 			rdx, rax
-	imul 			rdx, rows 		;; row_len * i
-
 	;; for j in range 0..rows
 	.L3:
 	cmp 			rbx, rows
 	je 				.L4
 
 	;; most inner body
-	mov 			rcx, plane
-	add 			rcx, rdx
-	add 			rcx, rbx 					;; plane[row_len * i + j]
+	mov 			rsi, rax
+	mov 			rdi, rbx
+	call 			neighbours
 
-	mov 			cl, byte [rcx]
-	cmp 			cl, state_dead
-	jne 			.L5
+	mov 			rsi, rm
 
-	;; is alive
-
-	je 				.L6
-	.L5:
-
-	;; is dead
-
-	.L6:
+	mov 			rdx, 9
+	call 			print				;; print 'READ ME'
+	mov 			r15, rax
 
 	inc 			rbx
 	jmp				.L3
@@ -228,65 +219,65 @@ neighbours:
 	dec 			rdi 	;; plane[i-1][j-1]
 
 	IF_GTZ 		lu_s, rsi
-	IF_GTZ 		lu_d, rdi
-	ADDIF_NB_ALIVE 	lu_a, rsi, rdi
-	ENDIF			lu_s
+		IF_GTZ 		lu_d, rdi
+			ADDIF_NB_ALIVE 	lu_a, rsi, rdi
+		ENDIF			lu_s
 	ENDIF			lu_d
 
 	inc 			rdi 	;; plane[i-1][j]
 	IF_GTZ 		u_s, rsi
-	IF_GTZ 		u_d, rdi
-	ADDIF_NB_ALIVE u_a, rsi, rdi
-	ENDIF 		u_s
+		IF_GTZ 		u_d, rdi
+			ADDIF_NB_ALIVE 	u_a, rsi, rdi
+		ENDIF 		u_s
 	ENDIF 		u_d
 
 	inc 			rdi 	;; plane[i-1][j+1]
 	IF_GTZ 		ru_s, rsi
-	IF_GTZ 		ru_d, rdi
-	ADDIF_NB_ALIVE ru_a, rsi, rdi
-	ENDIF			ru_s
+		IF_GTZ 		ru_d, rdi
+			ADDIF_NB_ALIVE 	ru_a, rsi, rdi
+		ENDIF			ru_s
 	ENDIF			ru_d
 
 	inc 			rsi 	;; plane[i][j+1]
 	IF_GTZ 		r_s, rsi
-	IF_GTZ 		r_d, rdi
-	ADDIF_NB_ALIVE r_a, rsi, rdi
-	ENDIF			r_s
+		IF_GTZ 		r_d, rdi
+			ADDIF_NB_ALIVE 	r_a, rsi, rdi
+		ENDIF			r_s
 	ENDIF			r_d
 
 	dec 			rdi 	;; plane[i][j]
 	IF_GTZ 		o_s, rsi
-	IF_GTZ 		o_d, rdi
-	ADDIF_NB_ALIVE o_a, rsi, rdi
-	ENDIF			o_s
+		IF_GTZ 		o_d, rdi
+			ADDIF_NB_ALIVE 	o_a, rsi, rdi
+		ENDIF			o_s
 	ENDIF			o_d
 
 	dec 			rdi 	;; plane[i][j-1]
 	IF_GTZ 		l_s, rsi
-	IF_GTZ 		l_d, rdi
-	ADDIF_NB_ALIVE 	l_a, rsi, rdi
-	ENDIF			l_s
+		IF_GTZ 		l_d, rdi
+			ADDIF_NB_ALIVE 	l_a, rsi, rdi
+		ENDIF			l_s
 	ENDIF			l_d
 
 	inc 			rsi 	;; plane[i+1][j-1]
 	IF_GTZ 		ld_s, rsi
-	IF_GTZ 		ld_d, rdi
-	ADDIF_NB_ALIVE 	ld_a, rsi, rdi
-	ENDIF			ld_s
+		IF_GTZ 		ld_d, rdi
+			ADDIF_NB_ALIVE 	ld_a, rsi, rdi
+		ENDIF			ld_s
 	ENDIF			ld_d
 
 	inc 			rdi 	;; plane[i+1][j]
 	IF_GTZ 		d_s, rsi
-	IF_GTZ 		d_d, rdi
-	ADDIF_NB_ALIVE 	d_a, rsi, rdi
-	ENDIF			d_s
+		IF_GTZ 		d_d, rdi
+			ADDIF_NB_ALIVE 	d_a, rsi, rdi
+		ENDIF			d_s
 	ENDIF			d_d
 
 	inc 			rdi 	;; plane[i+1][j+1]
 	IF_GTZ 		rd_s, rsi
-	IF_GTZ 		rd_d, rdi
-	ADDIF_NB_ALIVE 	rd_a, rsi, rdi
-	ENDIF			rd_s
+		IF_GTZ 		rd_d, rdi
+			ADDIF_NB_ALIVE 	rd_a, rsi, rdi
+		ENDIF			rd_s
 	ENDIF			rd_d
 
 	xor 			rsi, rsi
