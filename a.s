@@ -13,13 +13,15 @@ section .bss
 	num_len 	resb 1
 
 section .data
-	cols			equ 8
-	rows			equ 8
+	cols			equ 16
+	rows			equ 16
 	nl 				db 0Ah
+  clear_esc db 0x1B, '[2J', 0x1B, '[H', 0
 
 section .text
 	global 		_main
 	extern 		print_n
+	extern 		_usleep
 
 ;; rsi - str
 ;; rdx - len
@@ -27,9 +29,31 @@ section .text
 ;; No ret
 print:
 	push 			rax
-	mov 			rax, 0x02000004
+	mov 			rax, 02000004h
 	mov 			rdi, 1
 	syscall
+	pop 			rax
+	ret
+
+;; rsi - str
+;; rdx - len
+;;
+;; No ret
+clear:
+	push 			rax
+	push 			rdx
+	push 			rsi
+	push 			rdi
+
+ 	mov 			rax, 02000004h
+ 	mov 			rdi, 1
+ 	lea 			rsi, [rel clear_esc]
+ 	mov 			rdx, 8
+ 	syscall
+
+	pop 			rdi
+	pop 			rsi
+	pop 			rdx
 	pop 			rax
 	ret
 
@@ -387,6 +411,7 @@ neighbours:
 entry:
 	call 			plane_init
 
+	;; allocate few dummies on the plane
 	alloc_one 4, 2
 	alloc_one 3, 3
 	alloc_one 2, 4
@@ -396,9 +421,13 @@ entry:
 	alloc_one 6, 4
 	alloc_one 5, 3
 
+	.L1:
 	call 			plane_dump
 	call 			plane_advance
-	call 			plane_dump
+  mov 			rdi, 100000
+  call 			_usleep
+	call			clear
+	jmp 			.L1
 
 	exit 			0
 
