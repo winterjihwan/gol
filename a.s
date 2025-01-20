@@ -8,7 +8,8 @@
 %define state_alive 2Ah
 
 section .bss
-	plane 		resq cols * rows
+	plane 		resb cols * rows
+	plane_new resb cols * rows
 	num_len 	resb 1
 
 section .data
@@ -154,6 +155,8 @@ _alloc_one:
 ;; %1 - state
 ;; %2 - col index
 ;; %3 - row index
+;;
+;; important: plane_new is used
 %macro STATE_CHG 3
 	push 			rdx
 	push 			rcx
@@ -163,9 +166,9 @@ _alloc_one:
 	
 	mov 			rdx, %2
 	imul 			rdx, rows 		;; row_len * i
-	mov 			rcx, plane
+	mov 			rcx, plane_new
 	add 			rcx, rdx
-	add 			rcx, %3 			;; plane[row_len * i + j]
+	add 			rcx, %3 			;; plane_new[row_len * i + j]
 
 	mov 			byte [rcx], %1
 
@@ -198,16 +201,30 @@ _alloc_one:
 	pop 			rax
 %endmacro
 
+;; %1 - src plane
+;; %2 - dst plane
+%macro PLANE_MOV 2
+	push 			rsi
+	push 			rdi
+	push 			rcx
+
+	lea 			rsi, [rel %1]
+	lea 			rdi, [rel %2]
+	mov 			rcx, rows * cols
+
+	cld
+	rep 			movsb
+
+	pop 			rcx
+	pop 			rdi
+	pop 			rsi
+%endmacro
+
 ;; No args
 ;;
 ;; No ret
 plane_advance:
-	push 			rbp
-	mov 			rbp, rsp
-
-	sub 			rsp, 4 						;; 1 local var
-	mov 			dword [rsp-4], 0 	;; l0 = 0
-
+	PLANE_MOV	plane, plane_new
 	mov 			rax, 0 			;; i = 0
 	mov 			rbx, 0 			;; j = 0
 
@@ -236,41 +253,23 @@ plane_advance:
 	;; Any live cell with fewer than two live neighbours dies,
 	;; as if by underpopulation.
 	IF_LT 		lt_2, rax, 2
-		PLANE_POS_PRINT 	r8, r9
-		NL_PRINT
-		NL_PRINT
-
-		STATE_CHG	state_dead, rax, rbx
+		STATE_CHG				state_dead, r8, r9
 	ENDIF 		lt_2
 
-	;; Rule 2
+	;; Rule 3
 	;;
 	;; Any live cell with more than three live neighbours dies,
 	;; as if by overpopulation.
 	IF_GT 		gt_3, rax, 3
-		;call 			print_n
-		;mov 			rsi, nl
-		;mov 			rdx, 1
-		;call 			print				;; print '\n'
-		;mov 			rsi, nl
-		;mov 			rdx, 1
-		;call 			print				;; print '\n'
-		STATE_CHG	state_dead, rax, rbx
+		STATE_CHG				state_dead, r8, r9
 	ENDIF 		gt_3
 
-	;; Rule 3
+	;; Rule 4
 	;;
 	;; Any dead cell with exactly three live neighbours becomes a live cell,
 	;; as if by reproduction.
 	IF_EQ 		eq_3, rax, 3
-		;STATE_CHG	state_alive, rax, rbx
-		;call 			print_n
-		;mov 			rsi, nl
-		;mov 			rdx, 1
-		;call 			print				;; print '\n'
-		;mov 			rsi, nl
-		;mov 			rdx, 1
-		;call 			print				;; print '\n'
+		STATE_CHG				state_alive, r8, r9
 	ENDIF 		eq_3
 
 
@@ -288,8 +287,7 @@ plane_advance:
 	jmp				.L1
 	.L2:
 
-	mov 			rsp, rbp
-	pop 			rbp
+	PLANE_MOV	plane_new, plane
 	ret
 
 ;; %1 	- col index
