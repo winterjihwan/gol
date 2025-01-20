@@ -1,6 +1,6 @@
 # Game of life in nasm
 
-## Entertainment purposes
+Entertainment purposes
 
 ```shell
 $ make a

@@ -9,15 +9,17 @@
 
 section .bss
 	plane 		resq cols * rows
+	num_len 	resb 1
 
 section .data
-	cols			equ 4
-	rows			equ 4
+	cols			equ 16
+	rows			equ 16
 	nl 				db 0Ah
-	rm 				db "Read me", 0, 10
+	added 		db "Added", 0, 10
 
 section .text
 	global 		_main
+	extern 		print_n
 
 ;; rsi - str
 ;; rdx - len
@@ -56,7 +58,7 @@ plane_init:
 	add 			rcx, rdx
 	add 			rcx, rbx 								;; plane[row_len * i + j]
 
-	mov 			qword [rcx], state_dead	;; plane[row_len * i + j] = '.'
+	mov 			byte [rcx], state_dead	;; plane[row_len * i + j] = '.'
 
 	inc 			rbx
 	jmp				.L3
@@ -132,12 +134,17 @@ _alloc_one:
 
 %macro IF_EQ 3
 	cmp 			%2, %3
-	jle 			.L_%1
+	jne 			.L_%1
 %endmacro
 
 %macro IF_LT 3
 	cmp 			%2, %3
 	jge 			.L_%1
+%endmacro
+
+%macro IF_GT 3
+	cmp 			%2, %3
+	jle 			.L_%1
 %endmacro
 
 %macro ENDIF 1
@@ -194,9 +201,34 @@ plane_advance:
 	mov 			rdi, rbx
 	call 			neighbours
 
+	;; Rule 1
+	;;
+	;; Any live cell with fewer than two live neighbours dies,
+	;; as if by underpopulation.
 	IF_LT 		lt_2, rax, 2
 		STATE_CHG	state_dead, rax, rbx
 	ENDIF 		lt_2
+
+	;; Rule 2
+	;;
+	;; Any live cell with more than three live neighbours dies,
+	;; as if by overpopulation.
+	IF_GT 		gt_3, rax, 3
+		STATE_CHG	state_dead, rax, rbx
+	ENDIF 		gt_3
+
+	;; Rule 3
+	;;
+	;; Any dead cell with exactly three live neighbours becomes a live cell,
+	;; as if by reproduction.
+	IF_EQ 		eq_3, rax, 3
+		STATE_CHG	state_alive, rax, rbx
+	ENDIF 		eq_3
+
+	call 			print_n
+	mov 			rsi, nl
+	mov 			rdx, 1
+	call 			print				;; print '\n'
 
 	pop 			rax 				;; clobber - fn neighbour
 	;; inner body end
@@ -229,8 +261,15 @@ plane_advance:
 	add 			rcx, rdx
 	add 			rcx, %3 			;; plane[row_len * i + j]
 
+	mov 			r15, rcx
+
 	mov 			cl, byte [rcx]
-	IF_EQ			%1, cl, state_dead
+	IF_EQ			%1, cl, state_alive
+		;;; Dev purpose
+		;mov 			rsi, added
+		;mov 			rdx, 7
+		;call 			print				;; print 'Added'
+
 		inc 			rax
 	ENDIF			%1
 
@@ -264,51 +303,49 @@ plane_advance:
 neighbours:
 	mov 			rax, 0
 
-	R2_POP 		rdi, rsi
+	R2_PUSH 	rdi, rsi
 	dec 			rsi
 	dec 			rdi 	;; plane[i-1][j-1]
 	NB_OFFSET lu
-	R2_PUSH 	rsi, rdi
+	R2_POP 		rsi, rdi
 
-	R2_POP 		rdi, rsi
+	R2_PUSH 	rdi, rsi
 	dec 			rsi 	;; plane[i-1][j]
 	NB_OFFSET u
-	R2_PUSH 	rsi, rdi
+	R2_POP	 	rsi, rdi
 
-	R2_POP 		rdi, rsi
+	R2_PUSH 	rdi, rsi
 	dec 			rsi
 	inc 			rdi 	;; plane[i-1][j+1]
 	NB_OFFSET ru
-	R2_PUSH 	rsi, rdi
+	R2_POP 		rsi, rdi
 
-	R2_POP 		rdi, rsi
+	R2_PUSH 	rdi, rsi
 	inc 			rdi 	;; plane[i][j+1]
 	NB_OFFSET r
-	R2_PUSH 	rsi, rdi
-
-	NB_OFFSET o 		;; plane[i][j]
-
-	R2_POP 		rdi, rsi
+	R2_POP 		rsi, rdi
+	
+	R2_PUSH 	rdi, rsi
 	dec 			rdi 	;; plane[i][j-1]
 	NB_OFFSET l
-	R2_PUSH 	rsi, rdi
-
-	R2_POP 		rdi, rsi
+	R2_POP 		rsi, rdi
+	
+	R2_PUSH 	rdi, rsi
 	inc 			rsi
 	dec 			rdi 	;; plane[i+1][j-1]
 	NB_OFFSET ld
-	R2_PUSH 	rsi, rdi
+	R2_POP 		rsi, rdi
 
-	R2_POP 		rdi, rsi
+	R2_PUSH 	rdi, rsi
 	inc 			rsi 	;; plane[i+1][j]
 	NB_OFFSET d
-	R2_PUSH 	rsi, rdi
+	R2_POP	 	rsi, rdi
 
-	R2_POP 		rdi, rsi
+	R2_PUSH 	rdi, rsi
 	inc 			rsi
 	inc 			rdi 	;; plane[i+1][j+1]
 	NB_OFFSET rd
-	R2_PUSH 	rsi, rdi
+	R2_POP 		rsi, rdi
 
 	xor 			rsi, rsi
 	xor 			rdi, rdi
@@ -317,7 +354,9 @@ neighbours:
 entry:
 	call 			plane_init
 
-	alloc_one 2, 3
+	alloc_one 1, 2
+	alloc_one 1, 3
+	alloc_one 2, 1
 
 	call 			plane_dump
 	call 			plane_advance
