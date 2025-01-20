@@ -12,10 +12,9 @@ section .bss
 	num_len 	resb 1
 
 section .data
-	cols			equ 16
-	rows			equ 16
+	cols			equ 8
+	rows			equ 8
 	nl 				db 0Ah
-	added 		db "Added", 0, 10
 
 section .text
 	global 		_main
@@ -158,6 +157,9 @@ _alloc_one:
 %macro STATE_CHG 3
 	push 			rdx
 	push 			rcx
+
+	xor 			rcx, rcx
+	xor 			rdx, rdx
 	
 	mov 			rdx, %2
 	imul 			rdx, rows 		;; row_len * i
@@ -169,6 +171,31 @@ _alloc_one:
 
 	pop 			rcx
 	pop 			rdx
+%endmacro
+
+;; %1 - col pos
+;; %2 - row pos
+%macro NL_PRINT 0
+	push 			rsi
+	push 			rdi
+	push 			rdx
+	mov 			rsi, nl
+	mov 			rdx, 1
+	call 			print				;; '\n'
+	pop 			rdx
+	pop 			rdi
+	pop 			rsi
+%endmacro
+
+;; %1 - col pos
+;; %2 - row pos
+%macro PLANE_POS_PRINT 2
+	push 			rax
+	mov 			rax, %1
+	call 			print_n 	;; xcord
+	mov 			rax, %2
+	call 			print_n 	;; ycord
+	pop 			rax
 %endmacro
 
 ;; No args
@@ -197,6 +224,9 @@ plane_advance:
 	;; most inner body
 	push 			rax 				;; clobber - fn neighbour
 
+	mov 			r8, rax
+	mov 			r9, rbx
+
 	mov 			rsi, rax
 	mov 			rdi, rbx
 	call 			neighbours
@@ -206,6 +236,10 @@ plane_advance:
 	;; Any live cell with fewer than two live neighbours dies,
 	;; as if by underpopulation.
 	IF_LT 		lt_2, rax, 2
+		PLANE_POS_PRINT 	r8, r9
+		NL_PRINT
+		NL_PRINT
+
 		STATE_CHG	state_dead, rax, rbx
 	ENDIF 		lt_2
 
@@ -214,6 +248,13 @@ plane_advance:
 	;; Any live cell with more than three live neighbours dies,
 	;; as if by overpopulation.
 	IF_GT 		gt_3, rax, 3
+		;call 			print_n
+		;mov 			rsi, nl
+		;mov 			rdx, 1
+		;call 			print				;; print '\n'
+		;mov 			rsi, nl
+		;mov 			rdx, 1
+		;call 			print				;; print '\n'
 		STATE_CHG	state_dead, rax, rbx
 	ENDIF 		gt_3
 
@@ -222,13 +263,16 @@ plane_advance:
 	;; Any dead cell with exactly three live neighbours becomes a live cell,
 	;; as if by reproduction.
 	IF_EQ 		eq_3, rax, 3
-		STATE_CHG	state_alive, rax, rbx
+		;STATE_CHG	state_alive, rax, rbx
+		;call 			print_n
+		;mov 			rsi, nl
+		;mov 			rdx, 1
+		;call 			print				;; print '\n'
+		;mov 			rsi, nl
+		;mov 			rdx, 1
+		;call 			print				;; print '\n'
 	ENDIF 		eq_3
 
-	call 			print_n
-	mov 			rsi, nl
-	mov 			rdx, 1
-	call 			print				;; print '\n'
 
 	pop 			rax 				;; clobber - fn neighbour
 	;; inner body end
@@ -261,15 +305,8 @@ plane_advance:
 	add 			rcx, rdx
 	add 			rcx, %3 			;; plane[row_len * i + j]
 
-	mov 			r15, rcx
-
 	mov 			cl, byte [rcx]
 	IF_EQ			%1, cl, state_alive
-		;;; Dev purpose
-		;mov 			rsi, added
-		;mov 			rdx, 7
-		;call 			print				;; print 'Added'
-
 		inc 			rax
 	ENDIF			%1
 
@@ -347,16 +384,19 @@ neighbours:
 	NB_OFFSET rd
 	R2_POP 		rsi, rdi
 
-	xor 			rsi, rsi
-	xor 			rdi, rdi
 	ret
 
 entry:
 	call 			plane_init
 
-	alloc_one 1, 2
-	alloc_one 1, 3
-	alloc_one 2, 1
+	alloc_one 4, 2
+	alloc_one 3, 3
+	alloc_one 2, 4
+	alloc_one 3, 5
+	alloc_one 4, 6
+	alloc_one 5, 5
+	alloc_one 6, 4
+	alloc_one 5, 3
 
 	call 			plane_dump
 	call 			plane_advance
