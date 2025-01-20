@@ -3,6 +3,6 @@
 Entertainment purposes
 
 ```shell
-$ make a
-$ ./a
+$ make gol
+$ ./gol
 ```
