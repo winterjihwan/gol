@@ -1,13 +1,8 @@
 FLAGS=-static
-LIBS=print_n.o
+LIBS=
 # -e _start
 
-a: a.s
-	nasm -gdwarf -f macho64 a.s -o a.o
-	ld -L/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib \
-		-L/usr/local/lib -lSystem $(LIBS) a.o -o a
-
-a_static: a.s
-	nasm -gdwarf -f macho64 a.s -o a.o
-	ld $(FLAGS) a.o -o a
-	
+gol: gol.s
+	nasm -gdwarf -f macho64 gol.s -o gol.o
+	ld -w -L/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib \
+		-L/usr/local/lib -lSystem $(LIBS) gol.o -o gol

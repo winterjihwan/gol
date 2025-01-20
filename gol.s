@@ -13,14 +13,13 @@ section .bss
 	num_len 	resb 1
 
 section .data
-	cols			equ 16
-	rows			equ 16
+	cols			equ 45
+	rows			equ 45
 	nl 				db 0Ah
   clear_esc db 0x1B, '[2J', 0x1B, '[H', 0
 
 section .text
 	global 		_main
-	extern 		print_n
 	extern 		_usleep
 
 ;; rsi - str
@@ -214,17 +213,6 @@ _alloc_one:
 	pop 			rsi
 %endmacro
 
-;; %1 - col pos
-;; %2 - row pos
-%macro PLANE_POS_PRINT 2
-	push 			rax
-	mov 			rax, %1
-	call 			print_n 	;; xcord
-	mov 			rax, %2
-	call 			print_n 	;; ycord
-	pop 			rax
-%endmacro
-
 ;; %1 - src plane
 ;; %2 - dst plane
 %macro PLANE_MOV 2
@@ -359,6 +347,7 @@ plane_advance:
 ;; rdi - row index
 ;;
 ;; rax - neighbours_count
+align 4
 neighbours:
 	mov 			rax, 0
 
@@ -411,21 +400,52 @@ neighbours:
 entry:
 	call 			plane_init
 
-	;; allocate few dummies on the plane
-	alloc_one 4, 2
-	alloc_one 3, 3
-	alloc_one 2, 4
-	alloc_one 3, 5
-	alloc_one 4, 6
-	alloc_one 5, 5
-	alloc_one 6, 4
-	alloc_one 5, 3
+	;; Glider gun
+	alloc_one 7, 4
+	alloc_one 7, 5
+	alloc_one 8, 4
+	alloc_one 8, 5
+
+	alloc_one 7, 14
+	alloc_one 8, 14
+	alloc_one 9, 14
+	alloc_one 6, 15
+	alloc_one 10, 15
+	alloc_one 5, 16
+	alloc_one 5, 17
+	alloc_one 11, 16
+	alloc_one 11, 17
+	alloc_one 8, 18
+	alloc_one 6, 19
+	alloc_one 10, 19
+	alloc_one 7, 20
+	alloc_one 8, 20
+	alloc_one 9, 20
+	alloc_one 8, 21
+
+	alloc_one 5, 24
+	alloc_one 6, 24
+	alloc_one 7, 24
+	alloc_one 5, 25
+	alloc_one 6, 25
+	alloc_one 7, 25
+	alloc_one 4, 26
+	alloc_one 8, 26
+	alloc_one 3, 28
+	alloc_one 4, 28
+	alloc_one 8, 28
+	alloc_one 9, 28
+	
+	alloc_one 5, 38
+	alloc_one 6, 38
+	alloc_one 5, 39
+	alloc_one 6, 39
 
 	.L1:
 	call 			plane_dump
 	call 			plane_advance
-  mov 			rdi, 100000
-  call 			_usleep
+	mov 			rdi, 100000 	;; 10ms
+	call 			_usleep
 	call			clear
 	jmp 			.L1
 
