@@ -5,7 +5,7 @@
 %endmacro
 
 %define state_dead  2Eh
-%define state_alive 2Ah
+%define state_alive 23h
 
 section .bss
 	plane 		resb cols * rows
