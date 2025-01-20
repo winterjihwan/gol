@@ -444,7 +444,7 @@ entry:
 	.L1:
 	call 			plane_dump
 	call 			plane_advance
-	mov 			rdi, 100000 	;; 10ms
+	mov 			rdi, 10000 	;; 10ms
 	call 			_usleep
 	call			clear
 	jmp 			.L1
